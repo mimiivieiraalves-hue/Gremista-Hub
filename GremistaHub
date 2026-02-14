@@ -1,0 +1,194 @@
+local player = game:GetService("Players").LocalPlayer
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+
+-- // CONFIGURAÇÕES //
+local config = {
+    autoParry = false,
+    manualSpam = false,
+    visualize = false,
+    ballEsp = false,
+    range = 45,
+    walkSpeed = 16,
+    jumpPower = 50,
+    lastParry = 0
+}
+
+-- // SISTEMA DE SAVE/LOAD //
+local fileName = "GremistaHub_V14.json"
+local function saveSettings()
+    pcall(function() writefile(fileName, HttpService:JSONEncode(config)) end)
+end
+local function loadSettings()
+    if isfile(fileName) then
+        local success, data = pcall(function() return HttpService:JSONDecode(readfile(fileName)) end)
+        if success then config = data end
+    end
+end
+
+-- // INTERFACE SIDEBAR //
+local sg = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+sg.Name = "GremistaHub_V14"
+sg.ResetOnSpawn = false
+
+-- Botão de Abrir (Mobile/PC)
+local openBtn = Instance.new("TextButton", sg)
+openBtn.Size = UDim2.new(0, 45, 0, 45); openBtn.Position = UDim2.new(0, 10, 0.4, 0)
+openBtn.BackgroundColor3 = Color3.fromRGB(0, 162, 255); openBtn.Text = "G"; openBtn.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", openBtn).CornerRadius = UDim.new(1,0)
+
+local main = Instance.new("Frame", sg)
+main.Size = UDim2.new(0, 450, 0, 320); main.Position = UDim2.new(0.5, -225, 0.5, -160)
+main.BackgroundColor3 = Color3.fromRGB(15, 15, 20); main.BorderSizePixel = 0
+main.Active = true; main.Draggable = true; main.Visible = true
+Instance.new("UICorner", main)
+
+openBtn.MouseButton1Click:Connect(function() main.Visible = not main.Visible end)
+
+-- Sidebar (Esquerda)
+local sidebar = Instance.new("Frame", main)
+sidebar.Size = UDim2.new(0, 120, 1, 0); sidebar.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+Instance.new("UICorner", sidebar)
+
+local logo = Instance.new("ImageLabel", sidebar)
+logo.Size = UDim2.new(0, 60, 0, 60); logo.Position = UDim2.new(0.5, -30, 0, 10)
+logo.BackgroundTransparency = 1; logo.Image = "rbxassetid://18580016430"
+
+-- Conteúdo (Direita)
+local content = Instance.new("Frame", main)
+content.Position = UDim2.new(0, 125, 0, 10); content.Size = UDim2.new(1, -135, 1, -20)
+content.BackgroundTransparency = 1
+
+local pages = {
+    Main = Instance.new("ScrollingFrame", content),
+    Local = Instance.new("ScrollingFrame", content),
+    Settings = Instance.new("ScrollingFrame", content),
+    Credits = Instance.new("ScrollingFrame", content)
+}
+
+for _, p in pairs(pages) do
+    p.Size = UDim2.new(1, 0, 1, 0); p.BackgroundTransparency = 1; p.Visible = false; p.CanvasSize = UDim2.new(0,0,1.2,0)
+    Instance.new("UIListLayout", p).Padding = UDim.new(0, 8)
+end
+pages.Main.Visible = true
+
+-- Botões da Sidebar
+local function makeTab(name, y, page)
+    local btn = Instance.new("TextButton", sidebar)
+    btn.Size = UDim2.new(1, -10, 0, 30); btn.Position = UDim2.new(0, 5, 0, y)
+    btn.BackgroundColor3 = Color3.fromRGB(25, 25, 30); btn.Text = name; btn.TextColor3 = Color3.new(1,1,1); btn.Font = "GothamBold"
+    Instance.new("UICorner", btn)
+    btn.MouseButton1Click:Connect(function()
+        for _, pg in pairs(pages) do pg.Visible = false end
+        page.Visible = true
+    end)
+end
+makeTab("MAIN", 80, pages.Main)
+makeTab("LOCAL", 115, pages.Local)
+makeTab("SETTINGS", 150, pages.Settings)
+makeTab("CREDITS", 185, pages.Credits)
+
+-- // COMPONENTES //
+local function addToggle(text, key, parent)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(1, -5, 0, 35); btn.BackgroundColor3 = Color3.fromRGB(30,30,35); btn.Text = text..": OFF"; btn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", btn)
+    btn.MouseButton1Click:Connect(function()
+        config[key] = not config[key]
+        btn.Text = text..": "..(config[key] and "ON" or "OFF")
+        btn.BackgroundColor3 = config[key] and Color3.fromRGB(0, 162, 255) or Color3.fromRGB(30,30,35)
+    end)
+end
+
+-- ABA MAIN
+addToggle("Auto Parry", "autoParry", pages.Main)
+addToggle("Ball ESP", "ballEsp", pages.Main)
+addToggle("Visualize Circle", "visualize", pages.Main)
+
+local spamBtn = Instance.new("TextButton", pages.Main)
+spamBtn.Size = UDim2.new(1, -5, 0, 40); spamBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 200); spamBtn.Text = "MANUAL SPAM: OFF"; spamBtn.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", spamBtn)
+spamBtn.MouseButton1Click:Connect(function()
+    config.manualSpam = not config.manualSpam
+    spamBtn.BackgroundColor3 = config.manualSpam and Color3.fromRGB(0, 162, 255) or Color3.fromRGB(0, 80, 200)
+end)
+
+-- ABA LOCAL PLAYER
+local function addSlider(text, min, max, key, parent)
+    local label = Instance.new("TextLabel", parent)
+    label.Size = UDim2.new(1,-5,0,20); label.Text = text..": "..config[key]; label.TextColor3 = Color3.new(1,1,1); label.BackgroundTransparency = 1
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(1,-5,0,30); btn.BackgroundColor3 = Color3.fromRGB(0,162,255); btn.Text = "Aumentar +"; btn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", btn)
+    btn.MouseButton1Click:Connect(function()
+        config[key] = config[key] + 50
+        if config[key] > max then config[key] = min end
+        label.Text = text..": "..config[key]
+    end)
+end
+addSlider("Velocidade", 50, 500, "walkSpeed", pages.Local)
+addSlider("Pulo", 30, 300, "jumpPower", pages.Local)
+
+-- ABA SETTINGS
+local sv = Instance.new("TextButton", pages.Settings)
+sv.Size = UDim2.new(1,-5,0,35); sv.Text = "SAVE CONFIGS"; sv.BackgroundColor3 = Color3.fromRGB(0,150,0); sv.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", sv)
+sv.MouseButton1Click:Connect(saveSettings)
+
+local ld = Instance.new("TextButton", pages.Settings)
+ld.Size = UDim2.new(1,-5,0,35); ld.Text = "LOAD CONFIGS"; ld.BackgroundColor3 = Color3.fromRGB(150,150,0); ld.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", ld)
+ld.MouseButton1Click:Connect(loadSettings)
+
+-- ABA CREDITS
+local credBox = Instance.new("TextLabel", pages.Credits)
+credBox.Size = UDim2.new(1, -5, 1, 0); credBox.BackgroundTransparency = 1; credBox.TextColor3 = Color3.new(1,1,1); credBox.TextSize = 15; credBox.Font = "GothamBold"
+credBox.Text = "CREDITS:\n\ndg77l\nerickluanaaa\nGemini\n\nGremista Hub"
+
+-- // LÓGICA DE JOGO //
+local Sphere = Instance.new("Part", workspace)
+Sphere.Shape = "Ball"; Sphere.Material = "ForceField"; Sphere.Color = Color3.fromRGB(0, 162, 255); Sphere.CanCollide = false; Sphere.Anchored = true; Sphere.Transparency = 1
+
+local EspTag = Instance.new("BillboardGui", game.CoreGui)
+EspTag.Size = UDim2.new(0, 80, 0, 40); EspTag.AlwaysOnTop = true; EspTag.Enabled = false
+local EspLabel = Instance.new("TextLabel", EspTag)
+EspLabel.Size = UDim2.new(1,0,1,0); EspLabel.BackgroundTransparency = 1; EspLabel.TextColor3 = Color3.new(0,1,1); EspLabel.Font = "GothamBold"
+
+RunService.Heartbeat:Connect(function()
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChild("Humanoid")
+    if not root or not hum then return end
+
+    hum.WalkSpeed = config.walkSpeed
+    hum.JumpPower = config.jumpPower
+
+    if config.visualize then
+        Sphere.Transparency = 0.7; Sphere.Size = Vector3.new(config.range*2, config.range*2, config.range*2); Sphere.CFrame = root.CFrame
+    else Sphere.Transparency = 1 end
+
+    local ball = nil
+    for _, b in pairs(workspace:GetDescendants()) do
+        if b:IsA("BasePart") and (b.Name:find("Ball") or b:GetAttribute("target")) then
+            ball = b; break
+        end
+    end
+
+    if ball then
+        local dist = (root.Position - ball.Position).Magnitude
+        if config.ballEsp then EspTag.Enabled = true; EspTag.Adornee = ball; EspLabel.Text = math.floor(dist).."m" else EspTag.Enabled = false end
+
+        if config.autoParry then
+            local target = ball:GetAttribute("target") or ball:GetAttribute("Target")
+            local vel = ball.AssemblyLinearVelocity.Magnitude
+            if target == player.Name and (dist/vel < 0.75 or dist < 18) then
+                if tick() - config.lastParry > 0.05 then
+                    keypress(0x46); task.wait(0.01); keyrelease(0x46)
+                    config.lastParry = tick()
+                end
+            end
+        end
+    end
+    if config.manualSpam then keypress(0x46); task.wait(0.01); keyrelease(0x46) end
+end)
+
+UIS.InputBegan:Connect(function(i, g) if not g and i.KeyCode == Enum.KeyCode.Insert then main.Visible = not main.Visible end end)
